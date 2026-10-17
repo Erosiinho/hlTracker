@@ -1,0 +1,336 @@
+@import 'tailwindcss';
+
+@layer base {
+  :root {
+    /* dark is Hyperliquid's native theme; it is the default here and light
+       mode (below) is the tuned counterpart. Base is a true teal-black, not a
+       blue-tinted near-black. */
+    --bg: #0a1413;
+    --surface: #0e1b19;
+    --surface-2: #13211f;
+    --border: #1d2e2b;
+    --border-strong: #27403c;
+
+    --text: #e6f2ef;
+    --text-muted: #8ba39f;
+    --text-faint: #5f756f;
+
+    /* Hyperliquid mint — chrome only (brand, active nav, focus, links),
+       never on the data, so it never competes with long/short. */
+    --accent: #97fce4;
+    --accent-soft: rgba(151, 252, 228, 0.12);
+    --accent-line: rgba(151, 252, 228, 0.35);
+    --accent-text: #052521;
+
+    /* the domain's real colours: long vs short */
+    --success: #2ee6a6;
+    --success-soft: rgba(46, 230, 166, 0.14);
+    --warning: #f5c451;
+    --warning-soft: rgba(245, 196, 81, 0.14);
+    --danger: #fb5b6b;
+    --danger-soft: rgba(251, 91, 107, 0.14);
+
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-full: 999px;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 10px 30px -12px rgba(0, 0, 0, 0.6);
+
+    --topbar-bg: rgba(10, 20, 19, 0.82);
+
+    --font-sans: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', monospace;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f3f7f6;
+      --surface: #ffffff;
+      --surface-2: #eaf1ef;
+      --border: #dde7e4;
+      --border-strong: #c8d6d2;
+
+      --text: #0c1a18;
+      --text-muted: #51655f;
+      --text-faint: #7d938e;
+
+      --accent: #0fae92;
+      --accent-soft: rgba(15, 174, 146, 0.12);
+      --accent-line: rgba(15, 174, 146, 0.4);
+      --accent-text: #ffffff;
+
+      --success: #0a9d6e;
+      --success-soft: rgba(10, 157, 110, 0.12);
+      --warning: #b4790a;
+      --warning-soft: rgba(180, 121, 10, 0.12);
+      --danger: #e23a4e;
+      --danger-soft: rgba(226, 58, 78, 0.1);
+
+      --topbar-bg: rgba(243, 247, 246, 0.82);
+
+      --shadow-sm: 0 1px 2px rgba(12, 26, 24, 0.05);
+      --shadow-md: 0 10px 30px -14px rgba(12, 26, 24, 0.14);
+    }
+  }
+
+  * {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: 'ss01';
+  }
+}
+
+@layer components {
+  /* ---- app frame ---------------------------------------------------- */
+  .app-frame {
+    @apply flex min-h-screen flex-col;
+  }
+
+  .topbar {
+    @apply sticky top-0 z-30 w-full;
+    background-color: var(--topbar-bg);
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: saturate(140%) blur(12px);
+    -webkit-backdrop-filter: saturate(140%) blur(12px);
+  }
+
+  .topbar-inner {
+    @apply mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:px-6;
+  }
+
+  .brand {
+    @apply flex items-center gap-2.5 no-underline;
+    color: var(--text);
+  }
+
+  .brand-mark {
+    @apply block h-7 w-7;
+    color: var(--accent);
+  }
+
+  .brand-name {
+    @apply text-base font-semibold tracking-tight;
+    font-size: 1.05rem;
+  }
+
+  /* Drop the wordmark on very narrow screens so the nav keeps its room. */
+  @media (max-width: 400px) {
+    .brand-name {
+      display: none;
+    }
+  }
+
+  .brand-name b {
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  .nav-seg {
+    @apply flex items-center gap-1 rounded-full p-1;
+    background-color: var(--surface-2);
+    border: 1px solid var(--border);
+    /* Let the segment shrink inside the topbar and scroll its pills instead of
+       overflowing the viewport on narrow screens. */
+    min-width: 0;
+    flex-shrink: 1;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .nav-seg::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav-link {
+    @apply rounded-full px-2.5 py-1.5 text-[0.78rem] font-medium no-underline whitespace-nowrap transition-colors sm:px-3.5 sm:text-sm;
+    color: var(--text-muted);
+  }
+
+  .nav-link:hover {
+    color: var(--text);
+  }
+
+  .nav-link.router-link-exact-active {
+    background-color: var(--surface);
+    color: var(--accent);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* ---- page shell --------------------------------------------------- */
+  .app-shell {
+    @apply mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6 sm:py-10;
+  }
+
+  .app-header {
+    @apply flex flex-col gap-2;
+  }
+
+  .app-title {
+    @apply text-2xl font-bold tracking-tight sm:text-[2rem];
+    letter-spacing: -0.02em;
+  }
+
+  .app-subtitle {
+    @apply max-w-prose text-sm leading-relaxed;
+    color: var(--text-muted);
+  }
+
+  .panel {
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    @apply p-4 flex flex-col gap-5 sm:p-6;
+  }
+
+  .controls-grid {
+    @apply grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3;
+  }
+
+  .field-label {
+    @apply text-xs font-medium;
+    color: var(--text-muted);
+  }
+
+  .field-input {
+    @apply w-full rounded-[var(--radius-md)] px-3.5 py-2.5 text-sm outline-none transition-colors;
+    background-color: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  .field-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  .btn-primary {
+    @apply w-full rounded-[var(--radius-md)] py-3 text-sm font-semibold transition-all duration-150 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100;
+    background-color: var(--accent);
+    color: var(--accent-text);
+  }
+
+  .btn-primary:not(:disabled):hover {
+    filter: brightness(1.06);
+  }
+
+  .btn-ghost {
+    @apply rounded-[var(--radius-sm)] px-2.5 py-1 text-xs font-medium transition-colors active:scale-95;
+    background-color: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+  }
+
+  .btn-ghost:hover {
+    color: var(--text);
+    border-color: var(--border-strong);
+  }
+
+  .divider {
+    height: 1px;
+    background-color: var(--border);
+  }
+
+  .pill {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold;
+  }
+
+  .pill-neutral {
+    background-color: var(--surface-2);
+    color: var(--text-muted);
+  }
+
+  .pill-success {
+    background-color: var(--success-soft);
+    color: var(--success);
+  }
+
+  .pill-warning {
+    background-color: var(--warning-soft);
+    color: var(--warning);
+  }
+
+  .pill-danger {
+    background-color: var(--danger-soft);
+    color: var(--danger);
+  }
+
+  .status-chip {
+    @apply inline-flex w-fit items-center gap-2 rounded-full px-3 py-1.5 text-xs;
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+  }
+
+  .status-dot {
+    @apply h-1.5 w-1.5 rounded-full;
+    background-color: var(--success);
+  }
+
+  .empty-state {
+    @apply flex flex-col items-center justify-center gap-1 rounded-[var(--radius-md)] py-10 text-center;
+    background-color: var(--surface-2);
+  }
+
+  .table-scroll {
+    @apply -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0;
+  }
+
+  .data-table {
+    @apply w-full border-collapse text-left text-sm;
+  }
+
+  .data-table th {
+    @apply whitespace-nowrap px-2 pb-2.5 text-xs font-medium first:pl-0 last:pr-0;
+    color: var(--text-faint);
+  }
+
+  .data-table td {
+    @apply whitespace-nowrap px-2 py-3 first:pl-0 last:pr-0;
+    border-top: 1px solid var(--border);
+  }
+
+  .data-table tbody tr {
+    @apply transition-colors;
+  }
+
+  .data-table tbody tr:hover {
+    background-color: var(--surface-2);
+  }
+
+  /* columns that collapse away on small screens to keep tables readable */
+  .col-sm {
+    @apply hidden sm:table-cell;
+  }
+
+  .col-md {
+    @apply hidden md:table-cell;
+  }
+
+  .mono {
+    font-family: var(--font-mono);
+    letter-spacing: -0.01em;
+  }
+
+  .tabular {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+
+  .value-positive {
+    color: var(--success);
+  }
+
+  .value-negative {
+    color: var(--danger);
+  }
+}
