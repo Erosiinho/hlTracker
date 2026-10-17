@@ -1,0 +1,330 @@
+@import 'tailwindcss';
+
+@layer base {
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --surface-2: #f4f4f6;
+    --border: #e7e7ea;
+
+    --text: #18181b;
+    --text-muted: #71717a;
+    --text-faint: #a1a1aa;
+
+    --accent: #4f46e5;
+    --accent-soft: rgba(79, 70, 229, 0.1);
+    --accent-text: #ffffff;
+
+    --success: #16a34a;
+    --success-soft: rgba(22, 163, 74, 0.12);
+    --warning: #b45309;
+    --warning-soft: rgba(180, 83, 9, 0.12);
+    --danger: #dc2626;
+    --danger-soft: rgba(220, 38, 38, 0.1);
+
+    --accent-2: #8b5cf6;
+    --accent-gradient: linear-gradient(135deg, #6366f1, #8b5cf6);
+
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 18px;
+    --radius-full: 999px;
+
+    --shadow-sm: 0 1px 2px rgba(24, 24, 27, 0.04);
+    --shadow-md: 0 8px 24px -6px rgba(24, 24, 27, 0.08);
+
+    --topbar-bg: rgba(250, 250, 250, 0.8);
+
+    --font-sans:
+      -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto,
+      sans-serif;
+    --font-mono:
+      ui-monospace, 'SF Mono', 'Menlo', 'Cascadia Code', monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b0b0d;
+      --surface: #151517;
+      --surface-2: #1d1d20;
+      --border: #2a2a2e;
+
+      --text: #f4f4f5;
+      --text-muted: #a1a1aa;
+      --text-faint: #6b6b70;
+
+      --accent: #818cf8;
+      --accent-soft: rgba(129, 140, 248, 0.16);
+      --accent-text: #0b0b0d;
+      --accent-2: #a78bfa;
+      --accent-gradient: linear-gradient(135deg, #818cf8, #a78bfa);
+      --topbar-bg: rgba(11, 11, 13, 0.72);
+
+      --success: #4ade80;
+      --success-soft: rgba(74, 222, 128, 0.14);
+      --warning: #fbbf24;
+      --warning-soft: rgba(251, 191, 36, 0.14);
+      --danger: #f87171;
+      --danger-soft: rgba(248, 113, 113, 0.14);
+
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+      --shadow-md: 0 8px 24px -6px rgba(0, 0, 0, 0.5);
+    }
+  }
+
+  * {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* subtle ambient accent glow behind the page */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: -1;
+    background:
+      radial-gradient(
+        60rem 32rem at 15% -8%,
+        var(--accent-soft),
+        transparent 60%
+      ),
+      radial-gradient(
+        50rem 28rem at 110% 0%,
+        rgba(139, 92, 246, 0.08),
+        transparent 55%
+      );
+  }
+}
+
+@layer components {
+  /* ---- app frame ---------------------------------------------------- */
+  .app-frame {
+    @apply flex min-h-screen flex-col;
+  }
+
+  .topbar {
+    @apply sticky top-0 z-30 w-full;
+    background-color: var(--topbar-bg);
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: saturate(180%) blur(12px);
+    -webkit-backdrop-filter: saturate(180%) blur(12px);
+  }
+
+  .topbar-inner {
+    @apply mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:px-6;
+  }
+
+  .brand {
+    @apply flex items-center gap-2.5 no-underline;
+    color: var(--text);
+  }
+
+  .brand-mark {
+    @apply grid h-8 w-8 place-items-center rounded-[10px] text-sm font-bold lowercase;
+    background: var(--accent-gradient);
+    color: #fff;
+    box-shadow: var(--shadow-md);
+  }
+
+  .brand-name {
+    @apply text-base font-semibold tracking-tight;
+  }
+
+  .brand-name b {
+    background: var(--accent-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .nav-seg {
+    @apply flex items-center gap-1 rounded-full p-1;
+    background-color: var(--surface-2);
+    border: 1px solid var(--border);
+  }
+
+  .nav-link {
+    @apply rounded-full px-3 py-1.5 text-[0.8rem] font-medium no-underline transition-colors sm:px-4 sm:text-sm;
+    color: var(--text-muted);
+  }
+
+  .nav-link:hover {
+    color: var(--text);
+  }
+
+  .nav-link.router-link-exact-active {
+    background-color: var(--surface);
+    color: var(--accent);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* ---- page shell --------------------------------------------------- */
+  .app-shell {
+    @apply mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6 sm:py-10;
+  }
+
+  .app-header {
+    @apply flex flex-col gap-1.5;
+  }
+
+  .app-title {
+    @apply text-2xl font-semibold tracking-tight sm:text-[1.9rem];
+  }
+
+  .app-subtitle {
+    @apply max-w-prose text-sm leading-relaxed;
+    color: var(--text-muted);
+  }
+
+  .panel {
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    @apply p-4 flex flex-col gap-5 sm:p-6;
+  }
+
+  .controls-grid {
+    @apply grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3;
+  }
+
+  .field-label {
+    @apply text-xs font-medium uppercase tracking-wide;
+    color: var(--text-muted);
+  }
+
+  .field-input {
+    @apply w-full rounded-[var(--radius-md)] px-3.5 py-2.5 text-sm outline-none transition-colors;
+    background-color: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  .field-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  .btn-primary {
+    @apply w-full rounded-[var(--radius-md)] py-3 text-sm font-semibold transition-all duration-150 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100;
+    background-color: var(--accent);
+    color: var(--accent-text);
+  }
+
+  .btn-ghost {
+    @apply rounded-[var(--radius-sm)] px-2.5 py-1 text-xs font-medium transition-colors active:scale-95;
+    background-color: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+  }
+
+  .btn-ghost:hover {
+    color: var(--text);
+  }
+
+  .divider {
+    height: 1px;
+    background-color: var(--border);
+  }
+
+  .pill {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold;
+  }
+
+  .pill-neutral {
+    background-color: var(--surface-2);
+    color: var(--text-muted);
+  }
+
+  .pill-success {
+    background-color: var(--success-soft);
+    color: var(--success);
+  }
+
+  .pill-warning {
+    background-color: var(--warning-soft);
+    color: var(--warning);
+  }
+
+  .pill-danger {
+    background-color: var(--danger-soft);
+    color: var(--danger);
+  }
+
+  .status-chip {
+    @apply inline-flex w-fit items-center gap-2 rounded-full px-3 py-1.5 text-xs;
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+  }
+
+  .status-dot {
+    @apply h-1.5 w-1.5 rounded-full;
+    background-color: var(--success);
+  }
+
+  .empty-state {
+    @apply flex flex-col items-center justify-center gap-1 rounded-[var(--radius-md)] py-10 text-center;
+    background-color: var(--surface-2);
+  }
+
+  .table-scroll {
+    @apply -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0;
+  }
+
+  .data-table {
+    @apply w-full border-collapse text-left text-sm;
+  }
+
+  .data-table th {
+    @apply whitespace-nowrap px-2 pb-2 text-xs font-medium uppercase tracking-wide first:pl-0 last:pr-0;
+    color: var(--text-faint);
+  }
+
+  .data-table td {
+    @apply whitespace-nowrap px-2 py-3 first:pl-0 last:pr-0;
+    border-top: 1px solid var(--border);
+  }
+
+  .data-table tbody tr {
+    @apply transition-colors;
+  }
+
+  .data-table tbody tr:hover {
+    background-color: var(--surface-2);
+  }
+
+  /* columns that collapse away on small screens to keep tables readable */
+  .col-sm {
+    @apply hidden sm:table-cell;
+  }
+
+  .col-md {
+    @apply hidden md:table-cell;
+  }
+
+  .mono {
+    font-family: var(--font-mono);
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .value-positive {
+    color: var(--success);
+  }
+
+  .value-negative {
+    color: var(--danger);
+  }
+}
