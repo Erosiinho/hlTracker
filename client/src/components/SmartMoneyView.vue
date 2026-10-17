@@ -73,15 +73,28 @@
               <tr>
                 <th>Coin</th>
                 <th>Positioning (by notional)</th>
-                <th class="col-sm">Traders</th>
                 <th>Net</th>
+                <th>Conviction</th>
+                <th class="col-sm">Agree</th>
+                <th class="col-sm">Funding</th>
+                <th class="col-md">Cost basis</th>
+                <th class="col-md">OI share</th>
                 <th class="col-md">Total notional</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="c in store.coins" :key="c.coin">
-                <td class="mono">{{ c.coin }}</td>
-                <td class="min-w-[160px] sm:min-w-[220px]">
+                <td>
+                  <div class="mono">{{ c.coin }}</div>
+                  <div
+                    v-if="c.dayChange !== null && c.dayChange !== undefined"
+                    class="coin-sub tabular"
+                    :class="c.dayChange >= 0 ? 'value-positive' : 'value-negative'"
+                  >
+                    {{ (c.dayChange * 100).toFixed(1) }}% 24h
+                  </div>
+                </td>
+                <td class="min-w-[160px] sm:min-w-[200px]">
                   <div class="bias-bar">
                     <div
                       class="bias-long"
@@ -97,7 +110,6 @@
                     <span class="value-negative">{{ c.shortCount }}S</span>
                   </div>
                 </td>
-                <td class="tabular col-sm">{{ c.traderCount }}</td>
                 <td>
                   <span
                     class="pill"
@@ -108,6 +120,23 @@
                     {{ c.netSide }} {{ fmtUsd(Math.abs(c.netNotional)) }}
                   </span>
                 </td>
+                <td
+                  class="tabular"
+                  :class="c.netWeighted >= 0 ? 'value-positive' : 'value-negative'"
+                  :title="'Implied leverage behind the net position (lev-weighted conviction ÷ net notional)'"
+                >
+                  {{ convictionLabel(c) }}
+                </td>
+                <td class="tabular col-sm">{{ (c.agreement * 100).toFixed(0) }}%</td>
+                <td
+                  class="tabular col-sm"
+                  :class="fundingClass(c.funding)"
+                  :title="'Hourly funding rate'"
+                >
+                  {{ fmtFunding(c.funding) }}
+                </td>
+                <td class="tabular col-md">{{ fmtPx(costBasis(c)) }}</td>
+                <td class="tabular col-md">{{ fmtShare(c.smartMoneyOiShare) }}</td>
                 <td class="tabular col-md">{{ fmtUsd(c.totalNotional) }}</td>
               </tr>
             </tbody>
@@ -136,6 +165,44 @@ function fmtUsd(value: number): string {
   return `$${value.toFixed(0)}`;
 }
 
+// Cost basis of the side the crowd is net on — the smart-money entry to watch.
+function costBasis(c: CoinPositioning): number | null {
+  return c.netSide === 'long' ? c.avgEntryLong : c.avgEntryShort;
+}
+
+// Conviction as an implied leverage multiple: how levered the *net* position is.
+// |lev-weighted net| / |net notional| → e.g. "11.5x short". Dimensionless and
+// readable, unlike the raw weighted-notional dollar figure.
+function convictionLabel(c: CoinPositioning): string {
+  const net = Math.abs(c.netNotional);
+  if (net <= 0) return '—';
+  const lev = Math.abs(c.netWeighted) / net;
+  const side = c.netWeighted >= 0 ? 'long' : 'short';
+  return `${lev.toFixed(1)}x ${side}`;
+}
+
+function fmtPx(value: number | null): string {
+  if (value === null || value === undefined) return '—';
+  const digits = value >= 100 ? 0 : value >= 1 ? 2 : 4;
+  return `$${value.toLocaleString(undefined, { maximumFractionDigits: digits })}`;
+}
+
+function fmtFunding(value: number | null | undefined): string {
+  if (value === null || value === undefined) return '—';
+  return `${(value * 100).toFixed(4)}%`;
+}
+
+function fundingClass(value: number | null | undefined): string {
+  if (value === null || value === undefined) return '';
+  // Positive funding → longs pay shorts.
+  return value >= 0 ? 'value-negative' : 'value-positive';
+}
+
+function fmtShare(value: number | null | undefined): string {
+  if (value === null || value === undefined) return '—';
+  return `${(value * 100).toFixed(2)}%`;
+}
+
 onMounted(() => {
   if (!store.hasLoaded) {
     store.fetchSmartMoney();
@@ -144,12 +211,16 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.coin-sub {
+  font-size: 0.68rem;
+  margin-top: 0.1rem;
+}
 .bias-bar {
   display: flex;
   height: 8px;
   border-radius: 4px;
   overflow: hidden;
-  background-color: var(--accent-soft);
+  background-color: var(--surface-2);
 }
 .bias-long {
   background-color: var(--success);

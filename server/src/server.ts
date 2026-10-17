@@ -4,15 +4,21 @@ import errorHandler from './http/middlewares/error';
 
 import { LeaderboardService } from './services/leaderboard.service';
 import { WalletPositionsService } from './services/wallet-positions.service';
+import { WalletStatsService } from './services/wallet-stats.service';
+import { WalletOrdersService } from './services/wallet-orders.service';
+import { MarketService } from './services/market.service';
 import { SmartMoneyService } from './services/smart-money.service';
+import { FundingService } from './services/funding.service';
 
 import { LeaderboardController } from './http/controllers/leaderboard.controller';
 import { WalletPositionsController } from './http/controllers/wallet-positions.controller';
 import { SmartMoneyController } from './http/controllers/smart-money.controller';
+import { FundingController } from './http/controllers/funding.controller';
 
 import { LeaderboardRoutes } from './http/routes/leaderboard.routes';
 import { WalletPositionsRoutes } from './http/routes/wallet-positions.routes';
 import { SmartMoneyRoutes } from './http/routes/smart-money.routes';
+import { FundingRoutes } from './http/routes/funding.routes';
 
 export class Server {
     private app: Application;
@@ -26,20 +32,29 @@ export class Server {
 
         const leaderboardService = new LeaderboardService();
         const walletPositionsService = new WalletPositionsService();
+        const walletStatsService = new WalletStatsService();
+        const walletOrdersService = new WalletOrdersService();
+        const marketService = new MarketService();
         const smartMoneyService = new SmartMoneyService(
             leaderboardService,
             walletPositionsService,
+            marketService,
         );
+        const fundingService = new FundingService(marketService);
 
         const leaderboardController = new LeaderboardController(leaderboardService);
         const walletPositionsController = new WalletPositionsController(
             walletPositionsService,
+            walletStatsService,
+            walletOrdersService,
         );
         const smartMoneyController = new SmartMoneyController(smartMoneyService);
+        const fundingController = new FundingController(fundingService);
 
         this.setupLeaderboardRoutes(leaderboardController);
         this.setupWalletPositionsRoutes(walletPositionsController);
         this.setupSmartMoneyRoutes(smartMoneyController);
+        this.setupFundingRoutes(fundingController);
 
         // Error-handling middleware must be registered after the routes it
         // guards, otherwise Express never routes errors back to it.
@@ -72,6 +87,11 @@ export class Server {
     ): void {
         const smartMoneyRoutes = new SmartMoneyRoutes(smartMoneyController);
         this.app.use('/api/smart-money', smartMoneyRoutes.getRouter());
+    }
+
+    private setupFundingRoutes(fundingController: FundingController): void {
+        const fundingRoutes = new FundingRoutes(fundingController);
+        this.app.use('/api/funding', fundingRoutes.getRouter());
     }
 
     public getApp(): Application {

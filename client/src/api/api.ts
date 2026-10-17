@@ -2,8 +2,11 @@ import type {
     TopTradersQuery,
     TopTradersResult,
     WalletPositionsResult,
+    WalletStatsResult,
+    WalletOrdersResult,
     SmartMoneyQuery,
     SmartMoneyResult,
+    FundingResult,
 } from './types';
 
 const API_BASE_URL =
@@ -40,6 +43,27 @@ export const api = {
                 `${API_BASE_URL}/wallets/${address}/positions`,
             );
             return handleResponse<WalletPositionsResult>(response);
+        },
+
+        async getStats(address: string): Promise<WalletStatsResult> {
+            const response = await fetch(
+                `${API_BASE_URL}/wallets/${address}/stats`,
+            );
+            return handleResponse<WalletStatsResult>(response);
+        },
+
+        async getOrders(address: string): Promise<WalletOrdersResult> {
+            const response = await fetch(
+                `${API_BASE_URL}/wallets/${address}/orders`,
+            );
+            return handleResponse<WalletOrdersResult>(response);
+        },
+    },
+
+    funding: {
+        async get(): Promise<FundingResult> {
+            const response = await fetch(`${API_BASE_URL}/funding`);
+            return handleResponse<FundingResult>(response);
         },
     },
 

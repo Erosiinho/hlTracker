@@ -11,6 +11,8 @@ export class WalletPositionsRoutes {
 
     private initializeRoutes(): void {
         this.router.get('/:address/positions', this.controller.getPositions);
+        this.router.get('/:address/stats', this.controller.getStats);
+        this.router.get('/:address/orders', this.controller.getOrders);
     }
 
     public getRouter(): Router {

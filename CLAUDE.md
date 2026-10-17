@@ -80,10 +80,24 @@ registering it earlier silently breaks error handling for every route.
   Defaults: week / pnl / 50. `limit` ≤ 500.
 - `GET /api/wallets/:address/positions` — `WalletPositionsService`. A wallet's
   live open positions via `clearinghouseState`, sorted by notional desc. Address
-  is Zod-validated (`0x` + 40 hex) → `400` on bad input.
+  is Zod-validated (`0x` + 40 hex) → `400` on bad input. Each position carries
+  risk fields (`returnOnEquity`, `liquidationPx`, `liquidationDistance`,
+  `marginUsed`, `maxLeverage`, `marginType`, `cumFundingSinceOpen`) and the
+  response includes an account `summary` (effective leverage, free margin) from
+  `marginSummary`.
+- `GET /api/wallets/:address/stats` — `WalletStatsService`. Realized track record
+  (win rate, payoff ratio, avg hold, realized PnL, top coins, recent fills, a
+  cumulative-PnL `pnlCurve`, and `maxDrawdown`) derived from the public
+  `userFills` endpoint. Same Zod address validation.
+- `GET /api/wallets/:address/orders` — `WalletOrdersService`. Resting orders
+  (limits + TP/SL triggers) from `frontendOpenOrders`. Same Zod validation.
 - `GET /api/smart-money?window=week&metric=pnl&traders=30` — `SmartMoneyService`.
-  Takes the top-N traders, fetches each one's positions, aggregates per coin.
-  `traders` ≤ 100.
+  Takes the top-N traders, fetches each one's positions, aggregates per coin, then
+  merges per-coin market context (funding, OI, mark) and a liquidation-cascade
+  map (`liqClusters`). `traders` ≤ 100.
+- `GET /api/funding` — `FundingService`. Per-coin funding (current + predicted)
+  with a crowding/reversal read (`classifyFunding` → neutral/elevated/high/
+  extreme + a plain-language note), sorted by |funding| desc.
 
 ### Services (`services/`)
 
@@ -92,23 +106,48 @@ registering it earlier silently breaks error handling for every route.
   ~40 MB, so raw rows are cached in-memory with a short TTL
   (`LEADERBOARD_CACHE_TTL_MS`, default 60s).
 - `WalletPositionsService` — fetches `clearinghouseState` for the default dex +
-  `EXTRA_DEXS` (`['xyz']`), normalizes, sorts by notional. No cache.
-- `SmartMoneyService` — depends on the other two. Fetches top-N wallets'
-  positions with bounded concurrency (`p-limit`, `SMART_MONEY_CONCURRENCY`,
-  default 5) and **tolerates per-wallet failures** (a bad response returns null
-  and is filtered out rather than sinking the aggregate). Result cached by
+  `EXTRA_DEXS` (`['xyz']`), normalizes, sorts by notional, and extracts the
+  account `summary` from the default-dex `marginSummary`. No cache.
+- `WalletStatsService` — fetches `userFills` and computes stats via the pure,
+  exported `computeTraderStats()` in `lib/` (realized metrics + equity curve +
+  drawdown). No cache (per-wallet, on demand).
+- `WalletOrdersService` — fetches `frontendOpenOrders`, normalizes, sorts by
+  coin+price. No cache. Not used by smart-money (would double per-trader calls).
+- `MarketService` — one `metaAndAssetCtxs` call yields per-coin context (mark,
+  funding, OI, prevDayPx) for every coin; cached in-memory
+  (`MARKET_CACHE_TTL_MS`, default 30s) since it is shared across all coins.
+- `FundingService` — depends on `MarketService` + `predictedFundings`; classifies
+  each coin's funding into a crowding/reversal signal via the pure, exported
+  `classifyFunding()`. Cached (`FUNDING_CACHE_TTL_MS`, default 30s).
+- `SmartMoneyService` — depends on leaderboard + wallet-positions + market.
+  Fetches top-N wallets' positions with bounded concurrency (`p-limit`,
+  `SMART_MONEY_CONCURRENCY`, default 5) and **tolerates per-wallet failures** (a
+  bad response returns null and is filtered out rather than sinking the
+  aggregate); market context is fetched in parallel and a failed fetch degrades
+  to empty rather than sinking positioning. Result cached by
   `window:metric:traders` (`SMART_MONEY_CACHE_TTL_MS`, default 60s). The per-coin
-  rollup is the pure, exported `aggregatePositioning()` — unit-tested directly.
+  rollup is the pure, exported `aggregatePositioning()` (counts, lev-weighted
+  conviction, agreement, notional-weighted avg entry/liq, raw liq points) plus
+  `mergeMarketContext()` (merges market data and builds `liqClusters` via
+  `buildLiquidationClusters()`, stripping the internal `liqPoints`) — all
+  unit-tested directly.
 
 Tuning constants live as `process.env.X || default` in each service (there is no
 central config module), matching the original codebase's style.
 
 ### External data (`lib/hyperliquid-api.ts`)
 
-Pure fetch/transport + normalization, no app state. Leaderboard fetch needs a
-`User-Agent` header or the CDN 403s it. All numeric fields in Hyperliquid
-responses are strings; `szi`'s sign gives the side; an empty `assetPositions`
-array is a normal "no open positions" outcome, not an error.
+Pure fetch/transport + normalization, no app state. Covers the leaderboard,
+`clearinghouseState`, `metaAndAssetCtxs` (market context), and `userFills`
+(trade history) — all free/no-auth. Leaderboard fetch needs a `User-Agent`
+header or the CDN 403s it. All numeric fields in Hyperliquid responses are
+strings (parse via the `num()` helper, which returns null for missing values);
+`szi`'s sign gives the side; an empty `assetPositions` array is a normal "no
+open positions" outcome, not an error. `metaAndAssetCtxs` returns a positional
+`[meta, assetCtxs]` tuple aligned by coin index; `userFills` is newest-first,
+so `computeTraderStats()` re-sorts ascending for round-trip holding times. Mark
+price is recovered as `positionValue / size` (no extra fetch needed for the
+liquidation-distance metric).
 
 ### Testing (server)
 
@@ -121,16 +160,26 @@ anymore — the mocked-Prisma `buildApp` fixture went away with the database.
 
 Flat `api/api.ts` (native `fetch` + `handleResponse<T>` which reads `error.error`
 from failure bodies) plus composition-style Pinia stores (`stores/topTraders.ts`,
-`stores/smartMoney.ts`: refs/computed, try/catch/finally actions). Router has two
-routes: `/` (Top traders, the default) and `/smart-money`; page-level components
-live directly in `components/` (no `views/` dir). `utils/clipboard.ts` is a
+`stores/smartMoney.ts`: refs/computed, try/catch/finally actions). Router has five
+routes: `/` (Top traders, default), `/smart-money`, `/funding`, `/liquidations`
+(reuses the smart-money store for its `liqClusters`), and `/wallet/:address` (a
+deep-dive: positions + risk summary + realized-PnL curve/drawdown + resting
+orders, with a hand-rolled SVG equity curve — no chart lib). Page-level
+components live directly in `components/` (no `views/` dir); `TopTraderRow`'s
+expanded panel links to `/wallet/:address`. `utils/clipboard.ts` is a
 copy helper with an `execCommand` fallback — required because the app is often
 served over plain HTTP on a LAN IP, where `navigator.clipboard` is undefined
 (secure-context only).
 
-`assets/style.css` owns the visual system (light/dark via `prefers-color-scheme`,
-indigo accent, `.panel` cards, `.pill` badges, `.data-table`). Positive/negative
-values use `var(--success)`/`var(--danger)`.
+`assets/style.css` owns the visual system — a Hyperliquid-themed trading-terminal
+look: teal-black base with the mint accent (`--accent`, chrome only: brand, active
+nav, focus, links — never on data), fonts Space Grotesk (UI) + IBM Plex Mono
+(numerics, loaded in `index.html`), `.panel` cards, `.pill` badges, `.data-table`.
+Light/dark via `prefers-color-scheme`. Long/short and positive/negative values are
+the only saturated data colours (`var(--success)`/`var(--danger)`). The brand mark
+in `App.vue` is an original mint glyph (not Hyperliquid's trademarked logo).
+`TopTraderRow` fetches `/positions` and `/stats` together on expand (stats
+best-effort); `SmartMoneyView` renders the enriched per-coin columns.
 
 ## Conventions carried over from `lifeTracker`
 
@@ -144,16 +193,34 @@ client's `handleResponse` reads `error.error` (matching the server's
 ## Roadmap / known gaps
 
 - **Rate-limiting**: `smart-money` fetches ~2 requests per analyzed trader
-  (default + `xyz` dex), so `traders=30` ≈ 60 live calls, mitigated by
-  concurrency 5 + the 60s cache. Pushing toward `traders=100` can hit HTTP 429
-  on the free public API.
-- **Historical metrics** (win rate, drawdown, PnL curves, position deltas / who's
-  adding or trimming) are impossible from `clearinghouseState`'s single snapshot.
-  They need periodic snapshot persistence — reintroduce a DB (and likely a cron
-  job) when building them.
-- Many richer per-position fields are already returned by `clearinghouseState`
-  but not yet surfaced: `returnOnEquity`, `marginUsed`, `maxLeverage`,
-  `cumFunding`, `liquidationPx`, `leverage.type`, and the account `marginSummary`
-  (effective leverage, free margin). Good low-cost next metrics.
+  (default + `xyz` dex) plus one shared (cached) `metaAndAssetCtxs`, so
+  `traders=30` ≈ 60 live calls, mitigated by concurrency 5 + the 60s cache.
+  Pushing toward `traders=100` can hit HTTP 429 on the free public API. The
+  per-trader `/stats` call (from the Top-traders UI on row expand) adds one
+  `userFills` request per opened wallet.
+- **Realized track record is now live without a DB**: win rate, payoff, avg
+  hold, realized PnL and recent activity come from the public `userFills`
+  endpoint (`computeTraderStats()`). What still needs snapshot persistence is
+  *time-series* state: PnL/drawdown curves and position deltas (who's adding or
+  trimming between snapshots). Those remain impossible from a single
+  `clearinghouseState` read — reintroduce a DB + cron when building them.
+- Richer per-position fields and the account `marginSummary` are now surfaced
+  (effective leverage, free margin, ROE, liquidation distance, funding paid,
+  margin type). Remaining unused `clearinghouseState` data: `crossMarginSummary`,
+  `withdrawable`, per-position `cumFunding.allTime`.
+- Smart-money shows lev-weighted conviction, consensus/agreement, notional-
+  weighted cost basis and avg liquidation per side, funding, and smart-money OI
+  share. The aggregate **liquidation map** (cascade zones) now ships via
+  `liqClusters` + the `/liquidations` page; the **wallet deep-dive** (`/wallet/
+  :address`) adds the realized-PnL curve, drawdown and resting orders; the
+  **funding** page adds explicit crowding/reversal signals.
+- Not yet built (all feasible on free endpoints): a live "smart-money just
+  opened/closed" activity tape (merge recent `userFills` across top-N — but
+  rate-limit heavy), a per-coin page (`/coin/:symbol`) with a candle sparkline
+  from `candleSnapshot`, spot-balance accumulation from `spotClearinghouseState`,
+  and cross-referencing funding against smart-money net side per coin.
 - Nothing is covered by an end-to-end/live integration test; service behavior
-  against live Hyperliquid has only been spot-checked manually.
+  against live Hyperliquid has only been spot-checked manually. The pure
+  functions (`computeTraderStats`, `aggregatePositioning`, `mergeMarketContext`,
+  `buildLiquidationClusters`, `classifyFunding`) are unit-tested in
+  `aggregation.test.ts`.
