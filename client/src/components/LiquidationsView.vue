@@ -142,14 +142,20 @@ function sideEdge(c: CoinPositioning, side: 'long' | 'short'): number {
     }))
     .filter((p) => p.w > 0)
     .sort((a, b) => a.off - b.off);
-  if (!pts.length) return 0.05;
+
+  if (pts.length === 0) return 0.05;
+
   const total = pts.reduce((s, p) => s + p.w, 0);
   let cum = 0;
+
   for (const p of pts) {
     cum += p.w;
-    if (cum >= total * 0.9) return p.off;
+    if (cum >= total * 0.9) {
+      return p.off;
+    }
   }
-  return pts[pts.length - 1].off;
+
+  return 0.05;
 }
 
 // Axis domain: always includes 0 (price); extends each side to its weighted
